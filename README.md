@@ -29,3 +29,5 @@
     apiSpecYamlFileName: "api_swagger.yaml"
     productLayoutFileName: "product_layout.yaml"
     ```
+## Code
+- routers.go: Contains the routes that tenants need to implement.
