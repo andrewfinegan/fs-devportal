@@ -1,0 +1,13 @@
+# Server configurations
+contentpath:
+  tenantProviderApiFile:     "tenant_api.json"
+  apiSpecYamlFile:            "api_swagger.yaml"
+  productLayoutFile:          "product_layout.yaml"
+github:
+  gitHubRawContentHost:       "https://raw.githubusercontent.com"
+  gitHubContentBranch:        "main"
+  gitHubSourceOwner:          "Fiserv"
+  gitHubSourceRepo:           "Developer-Portal-Tenant-API"
+  gitHubAuthToken:            "678908204936d5bda2d4df0c867f1cf139f0974e"
+  gitHubUser:                 "username"
+

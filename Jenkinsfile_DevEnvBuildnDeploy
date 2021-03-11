@@ -1,0 +1,248 @@
+@Library('relteamlibrary') _
+
+def build_failure = false
+def job_name = "${env.JOB_NAME}"
+def APP_NAME_IN_MSG = job_name.split('/')[-1].split('_')[0]
+
+pipeline {
+
+    agent { label 'openshift' }
+
+    stages {
+
+        stage("OpenShift-Connection and Build Preparation") {
+
+            steps {
+
+                script {
+
+                    env.GIT_APPROVER = sh (script: 'git log -1 --pretty=%cn ${GIT_COMMIT}', returnStdout: true).trim()
+                    env.GIT_AUTHOR = sh (script: 'git log -1 --pretty=format:"%an"', returnStdout: true).trim()
+
+                    println("PR approved by ${env.GIT_APPROVER}:   PR created by ${env.GIT_AUTHOR}:")
+
+                    bitbucketStatusNotify( buildState: 'INPROGRESS' )
+                    slackSend channel: 'tos-jenkins-portal-alerts', message: "Started for PR (Created By: ${env.GIT_AUTHOR}, Approved By: ${env.GIT_APPROVER}) in NS:dev_developer-portal ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)...", color: '#648c11'
+
+                    def mystat = "${currentBuild.previousBuild.result}"
+
+                    println("Proevious Build Status: $mystat")
+
+                    while(mystat == 'null') {
+                        println("Wating for Previous Build completion...")
+                        slackSend channel: 'tos-jenkins-portal-alerts', message: "Wating for Previous Build completion  ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)...", color: '#ffff00'
+                        sleep 60
+                        println("Again checking Previous Build Status")
+                        mystat = "${currentBuild.previousBuild.result}"
+
+                        if (mystat != 'null') {
+                            println("Proevois Build Status: $mystat")
+                            println("Proceeding with Pipeline ...")
+
+                            slackSend channel: 'tos-jenkins-portal-alerts', message: "Reassuming Build ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)...", color: '#648c11'
+
+                        }
+
+                    }
+
+                    status = loginToOpenShift()
+                }
+
+                echo "${status}"
+            }
+        }
+
+		stage("Build") {
+
+            steps {
+
+				script {
+
+		            slackSend channel: 'tos-jenkins-portal-alerts', message: "${APP_NAME_IN_MSG} Build Started ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)...", color: '#ff8c00'
+
+                    status = sh (
+                   		script: '''
+
+                    		oc project dev-developer-portal
+
+                            APP_NAME=$(echo $JOB_NAME | awk -F"/|_" '{print tolower($2)}')
+
+                            #remove DC image triggers to stop auto deployment once latest image is avaialble
+                            oc set triggers dc ${APP_NAME} --remove-all
+                            oc set triggers dc ${APP_NAME} --from-config
+
+                    		oc start-build ${APP_NAME} -F 2>&1 | tee error.txt
+                    		cat error.txt
+
+                    	''',
+                   		returnStdout: true
+                   	).trim()
+
+                    echo "BC Build Related Message: ${status}"
+                    if (status.contains('build error:') || status.contains('Error from server (NotFound)') || status.contains('error: A project named') || status.contains('timed out waiting for the condition')) {
+
+                        sh  '''
+						    #!/bin/sh
+						    exit 1
+						'''
+
+                    } else {
+
+                         slackSend channel: 'tos-jenkins-portal-alerts', message: "${APP_NAME_IN_MSG} Build Completed successfully! ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)", color: '#ff8c00'
+
+                    }
+                }
+            }
+            
+            post {
+
+                failure {
+
+                    script{
+
+                        echo 'Build Stage failed!'
+
+                        bitbucketStatusNotify ( buildState: 'FAILED' )
+                        build_failure = true
+                        slackSend channel: 'tos-jenkins-portal-alerts', message: "PR (Created By: ${env.GIT_AUTHOR}, Approved By: ${env.GIT_APPROVER}) ${APP_NAME_IN_MSG} Build Failed in NS:dev_developer-portal! ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)", color: 'danger'
+                    }
+                }
+            }
+
+		}
+
+		stage("Junit") {
+
+            when {
+
+                 expression { build_failure == false }
+
+            }
+
+            steps {
+
+		        script {
+
+		            slackSend channel: 'tos-jenkins-portal-alerts', message: "${APP_NAME_IN_MSG} Junit Build Started ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)...", color: '#00bfff'
+
+                    status = sh (
+                   		script: '''
+                            cd $WORKSPACE/${CONTEXT_DIR}
+
+                            JUNIT_SCRIPT=./unittest.sh
+                            if [ -f "$JUNIT_SCRIPT" ]; then
+                                chmod +x $JUNIT_SCRIPT
+                                $JUNIT_SCRIPT
+                                
+                                APP_NAME=$(echo $JOB_NAME | awk -F"/|_" '{print tolower($2)}')
+                                echo "${APP_NAME} Junit Build completed Successfully!"
+                            else 
+                                echo "${JUNIT_SCRIPT} does not exist in ${CONTEXT_DIR}"
+                            fi
+
+                    	''',
+                   		returnStdout: true
+                   	).trim()
+
+                    echo "${status}"
+                }
+            }
+
+            post {
+
+                failure {
+
+                    echo 'Junit failed!'
+
+                    bitbucketStatusNotify ( buildState: 'FAILED' )
+                    slackSend channel: 'tos-jenkins-portal-alerts', message: "PR (Created By: ${env.GIT_AUTHOR}, Approved By: ${env.GIT_APPROVER}) ${APP_NAME_IN_MSG} Junit Build Failed! ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)", color: 'danger'
+
+                }
+
+                success {
+
+                    slackSend channel: 'tos-jenkins-portal-alerts', message: "${APP_NAME_IN_MSG} Junit Build Completed successfully! ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)", color: '#00bfff'
+
+                }
+
+                always {
+
+                    dir("$env.WORKSPACE/${CONTEXT_DIR}") {
+
+                        echo 'Binding Junit Build Result to UI...'
+
+                      	junit (allowEmptyResults: true,testResults:'junit.xml')
+
+                        echo 'Binding Junit Build Result to UI completed successfully.'
+
+                    }
+
+                }
+            }
+
+		}
+
+        stage("Dev Deployment") {
+
+            when {
+                 expression { build_failure == false }
+
+            }
+
+            steps {
+
+                script {
+
+                    script {
+
+                        slackSend channel: 'tos-jenkins-portal-alerts', message: "${APP_NAME_IN_MSG} Dev Deployment Started ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)...", color: 'good'
+
+                        status = sh (
+                       		script: '''
+
+                        		oc project dev-developer-portal
+
+                                APP_NAME=$(echo $JOB_NAME | awk -F"/|_" '{print tolower($2)}')
+                        		
+                                #Add image Trigger back to enable DC to rollout latest image
+                                sleep 30
+                                oc set triggers dc ${APP_NAME} --from-image ${APP_NAME}:latest -c ${APP_NAME}
+                                sleep 2
+                                
+                                #oc rollout latest dc/${APP_NAME}
+                                oc rollout status dc/${APP_NAME} -w=true
+                                
+                                sleep 10
+
+                        		echo "${APP_NAME} Deployment completed Successfully!"
+
+                        	''',
+                       		returnStdout: true
+                       	).trim()
+
+                        echo "${status}"
+                    }
+                }
+            }
+
+            post {
+
+                success {
+
+                    echo 'DEV Deployment completed successfully!'
+                    bitbucketStatusNotify ( buildState: 'SUCCESSFUL' )
+                    slackSend channel: 'tos-jenkins-portal-alerts', message: "${APP_NAME_IN_MSG} Dev Deployment Completed Successfully! ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)", color: 'good'
+
+                }
+
+                failure {
+
+                    echo 'DEV Deployments failed.'
+                    bitbucketStatusNotify ( buildState: 'FAILED' )
+                    slackSend channel: 'tos-jenkins-portal-alerts', message: "PR (Created By: ${env.GIT_AUTHOR}, Approved By: ${env.GIT_APPROVER}) ${APP_NAME_IN_MSG} Dev Deployment Failed in NS:dev_developer-portal! ${env.JOB_NAME} Build# ${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)", color: 'danger'
+
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,1 @@
+go test main_test.go -v 2>&1 | /opt/jenkins/go/bin/go-junit-report > ./junit.xml
