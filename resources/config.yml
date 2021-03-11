@@ -8,6 +8,6 @@ github:
   gitHubContentBranch:        "main"
   gitHubSourceOwner:          "Fiserv"
   gitHubSourceRepo:           "Developer-Portal-Tenant-API"
-  gitHubAuthToken:            "678908204936d5bda2d4df0c867f1cf139f0974e"
+  gitHubAuthToken:            "<Github_Access_Token>"
   gitHubUser:                 "username"
 
