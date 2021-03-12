@@ -67,29 +67,38 @@ func GetDocsTree(w http.ResponseWriter, r *http.Request) {
 
 	ref, err := getRef()
 	if err != nil {
-		log.Fatalf("Unable to get/create the commit reference: %s\n", err)
+		log.Printf("Unable to get/create the commit reference: %s\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	if ref == nil {
-		log.Fatalf("No error where returned but the reference is nil")
+		log.Println("No error where returned but the reference is nil")
+		return
 	}
 
 	tree, err := getTree(ref)
 	if err != nil {
-		log.Fatalf("Unable to create the tree based on the provided files: %s\n", err)
+		log.Printf("Unable to create the tree based on the provided files: %s\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 	if tree == nil {
-		log.Fatalf("No error where returned but doc tree is nil")
+		log.Println("No error where returned but doc tree is nil")
+		return
 	}
 
 	var respBytes []byte
 	respBytes, err = json.Marshal(tree)
 	if err != nil {
-		log.Fatalf("Unable marshall tree structure: %s\n", err)
+		log.Printf("Unable marshall tree structure: %s\n", err)
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	_, err = w.Write(respBytes)
 	if err != nil {
 		log.Println(err)
+		return
 	}
 	w.WriteHeader(http.StatusOK)
 
