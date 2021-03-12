@@ -14,7 +14,7 @@
 
 ## Configurations
 - /resources/config.yml : Update below configuration to point to tenant content github repo
-    ```Shell 
+```Shell 
 
 contentpath:
   tenantProviderApiFile:     "tenant_api.json"
