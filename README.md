@@ -15,19 +15,21 @@
 ## Configurations
 - /resources/config.yml : Update below configuration to point to tenant content github repo
     ```Shell 
-  github:
-    gitHubRawContentHost: "https://raw.githubusercontent.com"
-    gitHubContentBranch: "<content_branch_name>"
-    gitHubSourceOwner: "Fiserv"
-    gitHubSourceRepo: "<content_github_repo_name>"
-    gitHubBaseBranch: "main"
-    gitHubAuthToken: "<token>"
-    gitHubUser: "username"
-  
-  content:
-    tenantProviderApiFileName: "tenant_api.json"
-    apiSpecYamlFileName: "api_swagger.yaml"
-    productLayoutFileName: "product_layout.yaml"
+//Content Repo files
+contentpath:
+  tenantProviderApiFile:     "tenant_api.json"
+  apiSpecYamlFile:            "api_swagger.yaml"
+  productLayoutFile:          "product_layout.yaml"
+
+//Github repo details for tenant content
+github:
+  gitHubRawContentHost:       "https://raw.githubusercontent.com"
+  gitHubSourceOwner:          "Fiserv"
+  gitHubSourceRepo:           "<tenant_repo>"
+  gitHubContentBranch:        "main" 
+  gitHubAuthToken:            "<auth_token>"
+  gitHubUser:                 "<username>"
+
     ```
 ## Code
 - routers.go: Contains the routes that tenants need to implement.
