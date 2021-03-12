@@ -23,10 +23,10 @@ type Config struct {
 	GitHub struct {
 		GitHubRawContentHost  string `yaml:"gitHubRawContentHost"`
 		GitHubSourceOwner     string `yaml:"gitHubSourceOwner"`
-		GitHubSourceRepo      string `yaml:"gitHubSourceRepo" envconfig:"GITHUB_SOURCE_REPO"`
-		GitHubContentBranch   string `yaml:"gitHubContentBranch" envconfig:"GITHUB_CONTENT_BRANCH"`
-		GitHubUserName        string `yaml:"gitHubUser" envconfig:"GITHUB_USER_NAME"`
-		GitHubAuthToken       string `yaml:"gitHubAuthToken" envconfig:"GITHUB_AUTH_TOKEN"`
+		GitHubSourceRepo      string `yaml:"gitHubSourceRepo" envconfig:"GITHUB_TENANT_CONTENT_REPO"`
+		GitHubContentBranch   string `yaml:"gitHubContentBranch" envconfig:"GITHUB_TENANT_CONTENT_BRANCH"`
+		GitHubUserName        string `yaml:"gitHubUser" envconfig:"GITHUB_TENANT_REPO_USER_NAME"`
+		GitHubAuthToken       string `yaml:"gitHubAuthToken" envconfig:"GITHUB_TENANT_REPO_AUTH_TOKEN"`
 		GitHubContentFullPath string
 	} `yaml:"github"`
 }
