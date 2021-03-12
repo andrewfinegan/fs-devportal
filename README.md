@@ -15,13 +15,13 @@
 ## Configurations
 - /resources/config.yml : Update below configuration to point to tenant content github repo
     ```Shell 
-//Content Repo files
+
 contentpath:
   tenantProviderApiFile:     "tenant_api.json"
   apiSpecYamlFile:            "api_swagger.yaml"
   productLayoutFile:          "product_layout.yaml"
 
-//Github repo details for tenant content
+
 github:
   gitHubRawContentHost:       "https://raw.githubusercontent.com"
   gitHubSourceOwner:          "Fiserv"
