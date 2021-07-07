@@ -1,23 +1,31 @@
 package config
 
 import (
-	"fmt"
-	"github.com/ghodss/yaml"
-	"github.com/kelseyhightower/envconfig"
 	"io/ioutil"
 	"os"
+	"runtime"
+	"strings"
+
+	"github.com/ghodss/yaml"
+	"github.com/kelseyhightower/envconfig"
+	"github.com/sirupsen/logrus"
 )
 
+var AppConfig Config
+
+var Logger *logrus.Logger
+
 func processError(err error) {
-	fmt.Println(err)
-	os.Exit(2)
+	Logger.Fatalf("Loading config failed with exception: '%s'\n", err)
 }
 
 type Config struct {
 	ContentPath struct {
-		ApiSpecYamlFile       string `yaml:"tenantProviderApiFile"`
-		ProductLayoutFile     string `yaml:"productLayoutFile"`
-		TenantProviderApiFile string `yaml:"apiSpecYamlFile"`
+		ApiSpecYamlFile                string `yaml:"apiSpecYamlFile"`
+		ApiSpecDefaultYamlFile         string `yaml:"apiSpecDefaultYamlFile"`
+		ProductLayoutFile              string `yaml:"productLayoutFile"`
+		DocumentExplorerDefinitionFile string `yaml:"documentExplorerDefinitionFile"`
+		TenantProviderApiFile          string `yaml:"tenantProviderApiFile"`
 	} `yaml:"contentpath"`
 
 	GitHub struct {
@@ -49,4 +57,14 @@ func ReadEnv(cfg *Config) {
 	if err != nil {
 		processError(err)
 	}
+}
+
+func AddLogFields(logger *logrus.Logger) *logrus.Entry {
+	pc, file, _, _ := runtime.Caller(1)
+
+	filename := file[strings.LastIndex(file, "/")+1:]
+	funcname := runtime.FuncForPC(pc).Name()
+	fn := funcname[strings.LastIndex(funcname, ".")+1:]
+	pid := os.Getpid()
+	return logger.WithField("file", filename).WithField("function", fn).WithField("processID", pid)
 }

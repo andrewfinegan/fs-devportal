@@ -13,24 +13,25 @@ import (
 	"context"
 	"devportal/api/product"
 	"devportal/config"
-	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 var cfg config.Config
+var logger = logrus.New()
 
-//main :
+// Main method for the tenant server application
 func main() {
-	log.Printf("DevPortal Tenant Server started")
+	logger.Info("Sample Tenant Server started on port 8080")
 	router := NewRouter()
 
 	//Configure server
 	srv := &http.Server{
-		Addr: "0.0.0.0:8080",
+		Addr: "localhost:8080",
 		// Good practice to set timeouts to avoid Slowloris attacks.
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
@@ -42,7 +43,7 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
-			log.Println(err)
+			logger.Error("Cant not start server due to error: ", err)
 		}
 	}()
 
@@ -63,7 +64,7 @@ func main() {
 	// Optionally, you could run srv.Shutdown in a goroutine and block on
 	// <-ctx.Done() if your application should wait for other services
 	// to finalize based on context cancellation.
-	log.Println("shutting down")
+	logger.Info("Shutting down the server")
 	os.Exit(0)
 
 }
@@ -75,5 +76,5 @@ func readConfig() {
 	cfg.GitHub.GitHubContentFullPath = cfg.GitHub.GitHubRawContentHost + "/" + cfg.GitHub.GitHubSourceOwner + "/" + cfg.GitHub.GitHubSourceRepo + "/" + cfg.GitHub.GitHubContentBranch + "/"
 	product.DevPortalConfig = cfg
 
-	fmt.Printf("%+v", cfg)
+	logger.Debugf("%+v", cfg)
 }

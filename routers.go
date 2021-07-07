@@ -6,8 +6,9 @@ import (
 	"devportal/api/layout"
 	"devportal/api/product"
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
+
+	"github.com/gorilla/mux"
 )
 
 //Route struct
@@ -48,7 +49,7 @@ func Index(w http.ResponseWriter, r *http.Request) {
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(""))
+	w.Write([]byte("Sample Tenant Server is up and running !!!"))
 }
 
 /*//Function to override default handler and validate for basic authentication. This will return 401 for incorrect auth
@@ -105,7 +106,7 @@ var routes = Routes{
 	Route{
 		"Health Check API",
 		"GET",
-		"/live",
+		"/healthcheck",
 		HealthCheck,
 	},
 
