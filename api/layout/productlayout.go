@@ -3,9 +3,10 @@ package layout
 import (
 	"bytes"
 	"devportal/api/product"
-	"fmt"
-	"github.com/ghodss/yaml"
+	"devportal/config"
 	"net/http"
+
+	"github.com/ghodss/yaml"
 )
 
 //GetProductLayout : Get Layout YAML from Github for ProductPage and convert to JSON and Respond.
@@ -17,7 +18,7 @@ func GetProductLayout(w http.ResponseWriter, r *http.Request) {
 	response, err := http.Get(product.DevPortalConfig.GitHub.GitHubContentFullPath + product.DevPortalConfig.ContentPath.ProductLayoutFile)
 
 	if err != nil {
-		fmt.Println(err)
+		config.AddLogFields(config.Logger).Error(err)
 		w.Write([]byte("Product Layout not found"))
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -32,7 +33,7 @@ func GetProductLayout(w http.ResponseWriter, r *http.Request) {
 	jsonResponse, err := yaml.YAMLToJSON(respByte)
 
 	if err != nil {
-		fmt.Println("Yaml to json conversion failed")
+		config.AddLogFields(config.Logger).Println("Yaml to json conversion failed")
 		_, err = w.Write([]byte("Yaml to json conversion failed"))
 		w.WriteHeader(http.StatusInternalServerError)
 	} else {
