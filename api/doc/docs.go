@@ -47,17 +47,93 @@ import (
 
 var logger = logrus.New()
 
+// Adding function to check if on given dir any docignore file exists. 
+func checkForDocIgnoreFile( baseUrl string)([]string){
+	var txtlines []string
+	docIgnoreURL := baseUrl + "/.docignore" 
+	response, err := http.Get(docIgnoreURL) 
+ 
+	if (err != nil){
+		config.Logger.Error("docignore file Not found at requested dir")
+	} 
+	if response.StatusCode == http.StatusOK {
+
+	/* Note: io.ReadAll is only compatible wiht Go 1.16 or later. */
+	
+			bodyContent, err := ioutil.ReadAll(response.Body)
+			if err != nil {
+				config.Logger.Error("Not able to read data from docignore file")
+			} 
+	scanner := bufio.NewScanner(strings.NewReader(string(bodyContent)))
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+	// skipping any comments in docignore file	
+	statementCheck := strings.HasPrefix(scanner.Text(), "#")
+		if (!statementCheck){
+			if (len(scanner.Text()) > 0 ){
+				txtlines = append(txtlines, scanner.Text())
+			} 
+		} 
+	}
+	}
+	return txtlines
+}
+
 //Get Docs from Github by passing the document path in request body
 func GetDocumentServiceSelector(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
 	docPath := query.Get("path")
+	documentFileUrl := config.AppConfig.GitHub.GitHubContentFullPath
 
-	if docPath == "" {
-		GetDocsTree(w, r)
-	} else {
-
-		GetDocument(w, r, docPath)
-	}
+	// Checking for docignore in a given url
+	content := checkForDocIgnoreFile(documentFileUrl)
+	if (content != nil){ 
+			if docPath == "" {
+				GetDocsTree(w, r)
+			} else {
+		 			var docExists bool
+					for _, eachline := range content {
+					// Checking directory(s) and if any exist, just removing asterisk and check if dir exist in requested doc path	
+					docExists = strings.Contains(docPath ,strings.Replace(eachline , "**" , "",-1))
+					if (docExists){
+						break;
+					}
+				}
+				if (docExists){
+					api.WriteErrorResponse(w, api.ErrorResponse{
+					StatusCode:   http.StatusNotFound,
+					Message:      "Markdown file Ignored: " + docPath,
+					ResponseCode: "Ignored"}, "")
+				}else{
+					// Spliting doc path file to its current directory to check if any docignore file exit at this level
+					positionIndex  := strings.LastIndex(docPath, "/")  
+					if positionIndex > -1 { 
+						docPathDir := docPath[:positionIndex]
+						documentDirPath := config.AppConfig.GitHub.GitHubContentFullPath + docPathDir + "/.docignore" 
+						response, err := http.Get(documentDirPath) 
+						if (err != nil){
+							// Any error caused by retirieving docignore file, process the data doc path
+							GetDocument(w, r, docPath)
+						}
+						// if docIgnore exist at this sub dir then will ignore the request
+						if response.StatusCode == http.StatusOK {
+							api.WriteErrorResponse(w, api.ErrorResponse{
+							StatusCode:   http.StatusNotFound,
+							Message:      "Markdown file Ignored: " + docPath,
+							ResponseCode: "Ignored"}, "")
+						}else{ 
+							GetDocument(w, r, docPath)
+						}  
+					} 
+				} 
+	 		}
+		}else{
+			if docPath == "" {
+				GetDocsTree(w, r)
+			}else{
+				GetDocument(w, r, docPath)
+		}
+	} 
 }
 
 //Get Docs from Github by passing the document path in request body
@@ -138,16 +214,40 @@ func isMDFileOrFolder(treeEntry *github.TreeEntry) (result bool) {
 }
 
 // getTree generates the document tree
+// getTree generates the document tree
 func getTree(ref *github.Reference) (docTree *DocumentTree, err error) {
 	tree, _, err := client.Git.GetTree(ctx, config.AppConfig.GitHub.GitHubSourceOwner, config.AppConfig.GitHub.GitHubSourceRepo, *ref.Object.SHA, true)
 	var newDoc Document
 	docTree = new(DocumentTree)
-
 	if tree != nil {
+
+		documentFileUrl := config.AppConfig.GitHub.GitHubContentFullPath 
+		// Checking for docignore in a given url
+		content := checkForDocIgnoreFile(documentFileUrl) 
 		for _, fileArg := range tree.Entries {
 			if strings.Contains(*fileArg.Path, "docs/") && isMDFileOrFolder(fileArg) {
 				newDoc, err = buildDoc(fileArg)
-				docTree.Documents = append(docTree.Documents, newDoc)
+				if (content != nil){
+					var docExists1 bool
+					var docExists2 bool
+					var docExists3 bool
+					for _, eachline := range content {
+					// Checking directory(s) and if any exist, just removing asterisk and check if dir exist in requested doc path	
+					docExists1 = strings.Contains(*fileArg.Path ,strings.Replace(eachline , "**" , "",-1))
+					docExists2 = strings.Contains(*fileArg.Path ,strings.Replace(eachline , "/**" , "",-1))
+					docExists3 = strings.Contains(*fileArg.Path ,strings.Replace(eachline , "/" , "",-1))
+					if (docExists1 || docExists2 || docExists3){
+						break ;
+					}
+				}
+				if (!docExists1 && !docExists2 && !docExists3){
+					// Checking docignore file to exclude directory or file included into docignore file.
+					docTree.Documents = append(docTree.Documents, newDoc)
+				}
+				} else{
+					// If docignore file doesn't exit not filtering of any file(s) and dir(s).
+					docTree.Documents = append(docTree.Documents, newDoc)
+			 	}
 			}
 		}
 	}

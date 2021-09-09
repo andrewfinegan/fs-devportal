@@ -48,9 +48,8 @@ var logger = logrus.New()
 
 // Main method for the tenant server application
 func main() {
-	logger.Info("Sample Tenant Server started on port 8080")
-	router := NewRouter()
-
+	
+	initApplication()
 	//Configure server
 	srv := &http.Server{
 		Addr: "localhost:8080",
@@ -58,10 +57,10 @@ func main() {
 		WriteTimeout: time.Second * 15,
 		ReadTimeout:  time.Second * 15,
 		IdleTimeout:  time.Second * 60,
-		Handler:      router, // Pass our instance of gorilla/mux in.
+		Handler:      NewRouter(), // Pass our instance of gorilla/mux in.
 	}
 
-	readConfig()
+	logger.Info("Sample Tenant Server started on localhost port 8080")
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil {
@@ -89,6 +88,39 @@ func main() {
 	logger.Info("Shutting down the server")
 	os.Exit(0)
 
+}
+
+func initApplication() {
+	initLogger()
+	readConfig()
+	setLoggingLevel()
+}
+
+func initLogger() {
+	Formatter := new(logrus.TextFormatter)
+	Formatter.TimestampFormat = "2006/01/02 15:04:05.999999999Z07:00 MST"
+	Formatter.FullTimestamp = true
+	logger.SetFormatter(Formatter)
+
+	config.Logger = logger
+}
+
+func setLoggingLevel() {
+	switch config.AppConfig.Application.LoggingLevel {
+	case "TraceLevel":
+		logger.SetLevel(logrus.TraceLevel)
+	case "DebugLevel":
+		logger.SetLevel(logrus.DebugLevel)
+	case "InfoLevel":
+		logger.SetLevel(logrus.InfoLevel)
+	case "WarnLevel":
+		logger.SetLevel(logrus.WarnLevel)
+	case "ErrorLevel":
+		logger.SetLevel(logrus.ErrorLevel)
+	default:
+		logger.SetLevel(logrus.InfoLevel)
+	}
+	fmt.Printf("Application Logging Level: %v\n", logger.GetLevel())
 }
 
 func readConfig() {
